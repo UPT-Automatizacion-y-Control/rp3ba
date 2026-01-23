@@ -1,0 +1,204 @@
+<?xml version="1.0"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+
+<robot name="arms">
+
+  <link name="World_Link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/World_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 0.5" />
+      </material>
+    </visual>
+  </link>
+  
+   <!-- ROBOT 1 !-->  
+  
+  <link name="L1R1_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L1_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.92 0.71 0 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L2R1_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L2_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.11 0.36 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L3R1_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L3_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.51 0.06 0.31 1" />
+      </material>
+    </visual>
+  </link>  
+
+  <joint name="Q1R1_Joint" type="continuous">
+    <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
+    <parent link="World_Link" />
+    <child link="L1R1_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+  
+  <joint name="Q2R1_Joint" type="continuous">
+    <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
+    <parent link="L1R1_Link" />
+    <child link="L2R1_Link" />
+    <axis xyz="0 0 1" />
+  </joint>  
+  
+  <joint name="Q3R1_Joint" type="continuous">
+    <origin xyz="0.0784 0 0" rpy="0 0 0" />
+    <parent link="L2R1_Link" />
+    <child link="L3R1_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+   <!-- ROBOT 2 !-->  
+  
+  <link name="L1R2_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L1_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.92 0.71 0 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L2R2_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L2_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.11 0.36 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L3R2_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L3_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.51 0.06 0.31 1" />
+      </material>
+    </visual>
+  </link>  
+  
+   <link name ="AxR2_Link" />
+  
+   <joint name="Ax2_Joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 2.0944" />
+    <parent link="World_Link" />
+    <child link="AxR2_Link" />
+  </joint>
+
+  <joint name="Q1R2_Joint" type="continuous">
+    <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
+    <parent link="AxR2_Link" />
+    <child link="L1R2_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+  
+  <joint name="Q2R2_Joint" type="continuous">
+    <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
+    <parent link="L1R2_Link" />
+    <child link="L2R2_Link" />
+    <axis xyz="0 0 1" />
+  </joint>  
+  
+  <joint name="Q3R2_Joint" type="continuous">
+    <origin xyz="0.0784 0 0" rpy="0 0 0" />
+    <parent link="L2R2_Link" />
+    <child link="L3R2_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+   
+   <!-- ROBOT 3 !-->  
+  
+  <link name="L1R3_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L1_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.92 0.71 0 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L2R3_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L2_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.11 0.36 1" />
+      </material>
+    </visual>
+  </link>
+  
+  <link name="L3R3_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/L3_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.51 0.06 0.31 1" />
+      </material>
+    </visual>
+  </link>  
+
+   <link name ="AxR3_Link" />
+  
+   <joint name="AxR3_Joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 -2.0944" />
+    <parent link="World_Link" />
+    <child link="AxR3_Link" />
+  </joint>
+
+  <joint name="Q1R3_Joint" type="continuous">
+    <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
+    <parent link="AxR3_Link" />
+    <child link="L1R3_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+  
+  <joint name="Q2R3_Joint" type="continuous">
+    <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
+    <parent link="L1R3_Link" />
+    <child link="L2R3_Link" />
+    <axis xyz="0 0 1" />
+  </joint>  
+  
+  <joint name="Q3R3_Joint" type="continuous">
+    <origin xyz="0.0784 0 0" rpy="0 0 0" />
+    <parent link="L2R3_Link" />
+    <child link="L3R3_Link" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+</robot>
