@@ -9,6 +9,7 @@ using namespace dynamixel;
 #define DEVICE_NAME "/dev/ttyUSB0"
 #define PROTOCOL_VERSION 2.0 
 #define BAUDRATE 1000000
+#define ADDR_DRIVE_MODE 10
 #define ADDR_TORQUE_ENABLE 64
 #define ADDR_GOAL_VEL 112
 #define ADDR_GOAL_POS 116
@@ -24,7 +25,7 @@ const uint8_t DXL_IDS[] = {10, 20, 30, 11, 21, 31};
 const float DEG2RAD = 3.1416f/180.0f; 
 const float POS2RAW = 4095.0f/360.0f; 
 const float RAW2VEL = 0.02398f; // rad/s
-const uint16_t KP_TBL = 128, KD_TBL = 1;
+const uint16_t KP_TBL = 128, KD_TBL = 1, DM_TBL = 4;
 
 class U2D2Node : public rclcpp::Node
 {
@@ -108,6 +109,11 @@ private:
                 RCLCPP_ERROR(this->get_logger(), "Failed to set Profile Velocity for Dynamixel ID %d!", DXL_IDS[k]);
                 return false;
             } 
+            comm_result = packetHandler->write1ByteTxRx(portHandler.get(), DXL_IDS[k], ADDR_DRIVE_MODE, DM_TBL, &dxl_error);
+            if (comm_result != COMM_SUCCESS) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to change drive mode for Dynamixel ID %d!", DXL_IDS[k]);
+                return false;
+            } 
             comm_result = packetHandler->write1ByteTxRx(portHandler.get(), DXL_IDS[k], ADDR_TORQUE_ENABLE, 1, &dxl_error);
             if (comm_result != COMM_SUCCESS) {
                 RCLCPP_ERROR(this->get_logger(), "Failed to enable torque for Dynamixel ID %d!", DXL_IDS[k]);
@@ -156,6 +162,7 @@ private:
         
             for(int k = 0; k < TOTAL_DXL_IDS; k++)
             {
+                msg_out.name.push_back("dxl_" + std::to_string(DXL_IDS[k]));
                 pos_raw = groupSyncRead->getData(DXL_IDS[k], ADDR_PRESENT_POS, SIZE_POS);
                 msg_out.position.push_back((pos_raw/POS2RAW)*DEG2RAD - M_PI); 
                 vel_raw = groupSyncRead->getData(DXL_IDS[k], ADDR_PRESENT_VEL, SIZE_VEL);

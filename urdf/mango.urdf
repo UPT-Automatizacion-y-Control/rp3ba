@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+     
+<robot name="mobile">
+   
+  <link name ="World_Link" />
+
+  <link name="MB_Link">
+    <visual>
+    <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/MB_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 0.5" />
+      </material>
+    </visual>
+  </link>
+
+  <link name="EF_Link">
+    <visual>
+    <origin xyz="0 0 0" rpy="-1.5708 0 0" />
+      <geometry>
+        <mesh filename="package://rp3ba/meshes/Mango_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 0.5" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="MB_Joint" type="floating">
+    <parent link="World_Link" />
+    <child link="MB_Link" /> 
+  </joint>
+    
+  <link name ="AP1_Link" />
+  <link name ="AP2_Link" />
+  <link name ="AP3_Link" />
+  <link name ="AP2a_Link" />
+  <link name ="AP3a_Link" />
+  
+  <joint name="AP1_Joint" type="fixed">
+    <origin xyz="0.0916 0  0" rpy="0 0 0" />
+    <parent link="MB_Link" />
+    <child link="AP1_Link" />
+  </joint>
+  
+  <joint name="AP2a_Joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 2.0944" />
+    <parent link="MB_Link" />
+    <child link="AP2a_Link" /> 
+  </joint>
+  
+  <joint name="AP2_Joint" type="fixed">
+    <origin xyz="0.0916 0  0" rpy="0 0 0" />
+    <parent link="AP2a_Link" />
+    <child link="AP2_Link" />
+  </joint>
+  
+  <joint name="AP3a_Joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 -2.0944" />
+    <parent link="MB_Link" />
+    <child link="AP3a_Link" /> 
+  </joint>
+  
+  <joint name="AP3_Joint" type="fixed">
+    <origin xyz="0.0916 0  0" rpy="0 0 0" />
+    <parent link="AP3a_Link" />
+    <child link="AP3_Link" />
+  </joint>
+  
+  <joint name="EF_Joint" type="fixed">
+    <origin xyz="0 0  0" rpy="0 0 0" />
+    <parent link="MB_Link" />
+    <child link="EF_Link" />
+  </joint>
+  
+</robot>

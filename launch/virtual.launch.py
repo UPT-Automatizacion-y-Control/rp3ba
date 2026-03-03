@@ -12,7 +12,7 @@ def generate_launch_description():
     with open(urdf_arms, 'r') as infp_arms:
         robot_desc_arms = infp_arms.read()
         
-    urdf_mobile = join( get_package_share_directory('rp3ba'), 'urdf', 'mobile.urdf')
+    urdf_mobile = join( get_package_share_directory('rp3ba'), 'urdf', 'mango.urdf')
     with open(urdf_mobile, 'r') as infp_mobile:
         robot_desc_mobile = infp_mobile.read()
         
