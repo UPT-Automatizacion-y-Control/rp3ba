@@ -4,7 +4,7 @@ from launch_ros.actions import Node
 from launch.substitutions import Command, LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 
-DELAY_TIME = 1/20
+DELAY_TIME = 1/70
 
 def generate_launch_description():
 

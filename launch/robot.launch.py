@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
-DELAY_TIME = 1/20
+DELAY_TIME = 1/70
 
 def generate_launch_description():
 
