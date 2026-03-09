@@ -1,7 +1,4 @@
 <?xml version="1.0"?>
-<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
-     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
-     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 
 <robot name="arms">
 
@@ -52,21 +49,21 @@
     </visual>
   </link>  
 
-  <joint name="10_Joint" type="continuous">
+  <joint name="11_Joint" type="continuous">
     <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
     <parent link="World_Link" />
     <child link="L1R1_Link" />
     <axis xyz="0 0 1" />
   </joint>
   
-  <joint name="11_Joint" type="continuous">
+  <joint name="21_Joint" type="continuous">
     <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
     <parent link="L1R1_Link" />
     <child link="L2R1_Link" />
     <axis xyz="0 0 1" />
   </joint>  
   
-  <joint name="12_Joint" type="continuous">
+  <joint name="31_Joint" type="continuous">
     <origin xyz="0.0784 0 0" rpy="0 0 0" />
     <parent link="L2R1_Link" />
     <child link="L3R1_Link" />
@@ -116,21 +113,21 @@
     <child link="AxR2_Link" />
   </joint>
 
-  <joint name="20_Joint" type="continuous">
+  <joint name="12_Joint" type="continuous">
     <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
     <parent link="AxR2_Link" />
     <child link="L1R2_Link" />
     <axis xyz="0 0 1" />
   </joint>
   
-  <joint name="21_Joint" type="continuous">
+  <joint name="22_Joint" type="continuous">
     <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
     <parent link="L1R2_Link" />
     <child link="L2R2_Link" />
     <axis xyz="0 0 1" />
   </joint>  
   
-  <joint name="22_Joint" type="continuous">
+  <joint name="32_Joint" type="continuous">
     <origin xyz="0.0784 0 0" rpy="0 0 0" />
     <parent link="L2R2_Link" />
     <child link="L3R2_Link" />
@@ -180,21 +177,21 @@
     <child link="AxR3_Link" />
   </joint>
 
-  <joint name="30_Joint" type="continuous">
+  <joint name="13_Joint" type="continuous">
     <origin xyz="0.175 0  0.0077" rpy="0 0 -3.1416" />
     <parent link="AxR3_Link" />
     <child link="L1R3_Link" />
     <axis xyz="0 0 1" />
   </joint>
   
-  <joint name="31_Joint" type="continuous">
+  <joint name="23_Joint" type="continuous">
     <origin xyz="0 0 0.059" rpy="1.5708 0 0" />
     <parent link="L1R3_Link" />
     <child link="L2R3_Link" />
     <axis xyz="0 0 1" />
   </joint>  
   
-  <joint name="32_Joint" type="continuous">
+  <joint name="33_Joint" type="continuous">
     <origin xyz="0.0784 0 0" rpy="0 0 0" />
     <parent link="L2R3_Link" />
     <child link="L3R3_Link" />

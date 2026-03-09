@@ -7,32 +7,41 @@ import numpy
 from math import cos, sin, pi
 from numpy import array
 from numpy.linalg import norm
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
+from tf_transformations import euler_from_quaternion
 
-DXL_IDS = (10, 20, 30, 11, 21, 31, 12, 22, 32)
+DXL_IDS = (11, 12, 13, 21, 22, 23) # JR
 h = (0.175, 0.0667, 0.0784, 0.0848, 0.0916)
 
 class InvKinematicsNode(Node):
     def __init__(self):
-        super().__init__('inv_kinematics')
+        super().__init__('inv_kinematics_node')
         
         self.pub = self.create_publisher(JointState, 'angulos', 1000)
-        self.sub = self.create_subscription(Twist, 'pose', self.pose_callback, 10)
+        self.sub = self.create_subscription(PoseStamped, 'pose', self.pose_callback, 10)
         
         self.msg_out = JointState()
         self.msg_out.header = Header()
         self.msg_out.header.stamp = self.get_clock().now().to_msg()
-        self.msg_out.header.frame_id = "base"
+        self.msg_out.header.frame_id = "World_Link"
         self.msg_out.name = [f"{dxl_id}_Joint" for dxl_id in DXL_IDS]
             
         self.msg_out.position = [0.0] * 9 
         
-        self.get_logger().info("El nodo Inverse kinematics esta corriendo")
+        self.get_logger().info("El nodo inverse kinematics esta corriendo")
 
-    def pose_callback(self, data):
+    def pose_callback(self, msg):
         
+        p = msg.pose.position
+        q = msg.pose.orientation
+        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+
+        T_m_f = array([[cos(pitch)*cos(yaw), cos(yaw)*sin(roll)*sin(pitch)-cos(roll)*sin(yaw),  sin(roll)*sin(yaw)+cos(roll)*cos(yaw)*sin(pitch),  p.x],
+                                [cos(pitch)*sin(yaw),  cos(roll)*cos(yaw)+sin(roll)*sin(pitch)*sin(yaw), cos(roll)*sin(pitch)*sin(yaw)-cos(yaw)*sin(roll),   p.y],
+                                [-sin(pitch),                 cos(pitch)*sin(roll),                                               cos(roll)*cos(pitch),                                                p.z]])  
+                           
         P_c_m = array([[h[4], -h[4]*cos(pi/3), -h[4]*cos(pi/3)], 
                                  [    0,   h[4]*sin(pi/3), -h[4]*sin(pi/3)],
                                  [    0,                      0,                      0]])
@@ -40,15 +49,6 @@ class InvKinematicsNode(Node):
         P_O_f = array([[h[0], -h[0]*cos(pi/3), -h[0]*cos(pi/3)],
                                 [    0,   h[0]*sin(pi/3), -h[0]*sin(pi/3)],
                                 [    0,                      0,                      0]])
-        
-        Px, Py, Pz = data.linear.x,  data.linear.y,  data.linear.z 
-        Tx, Ty, Tz = data.angular.x, data.angular.y, data.angular.z
-        
-        T_m_f = array([[cos(Ty)*cos(Tz), cos(Tz)*sin(Tx)*sin(Ty)-cos(Tx)*sin(Tz), sin(Tx)*sin(Tz)+cos(Tx)*cos(Tz)*sin(Ty),  Px],
-                       [cos(Ty)*sin(Tz), cos(Tx)*cos(Tz)+sin(Tx)*sin(Ty)*sin(Tz), cos(Tx)*sin(Ty)*sin(Tz)-cos(Tz)*sin(Tx),  Py],
-                       [-sin(Ty),        cos(Ty)*sin(Tx),                         cos(Tx)*cos(Ty),                          Pz]])  
-                       
-        
         q0_offset = array([-pi, pi/3, -pi/3])
         
         for i in range(3):
@@ -83,7 +83,8 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
