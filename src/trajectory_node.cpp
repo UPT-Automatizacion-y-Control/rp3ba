@@ -60,8 +60,7 @@ private:
     {
         modo = msg->data;
         transition = true;
-        ppose_recieved = false;
-        t0 = this->now().seconds();
+        t0 = this->now().seconds(); 
     }
 
     void userGoalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -71,11 +70,8 @@ private:
 
     void pPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
-        if (!ppose_recieved)
-        {
             ppose = *msg;
             ppose_recieved = true;
-        }
     }
 
     void timerCallback()

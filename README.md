@@ -16,3 +16,15 @@ Ejecutar:
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
+
+Para mover el robot virtual:
+```
+ros2 launch rp3ba virtual.launch.py 
+ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
+```
+
+Para mover el robot real:
+```
+ros2 launch rp3ba robot.launch.py 
+ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
+```

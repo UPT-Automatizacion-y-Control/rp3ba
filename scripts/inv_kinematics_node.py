@@ -12,7 +12,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
 from tf_transformations import euler_from_quaternion
 
-DXL_IDS = (11, 12, 13, 21, 22, 23) # JR
+DXL_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JR
 h = (0.175, 0.0667, 0.0784, 0.0848, 0.0916)
 
 class InvKinematicsNode(Node):
@@ -26,7 +26,7 @@ class InvKinematicsNode(Node):
         self.msg_out.header = Header()
         self.msg_out.header.stamp = self.get_clock().now().to_msg()
         self.msg_out.header.frame_id = "World_Link"
-        self.msg_out.name = [f"{dxl_id}_Joint" for dxl_id in DXL_IDS]
+        self.msg_out.name = [f"dxl_{dxl_id}" for dxl_id in DXL_IDS]
             
         self.msg_out.position = [0.0] * 9 
         
