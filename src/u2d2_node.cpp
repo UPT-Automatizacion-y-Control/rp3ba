@@ -30,7 +30,7 @@ const uint8_t DXL_IDS[] = {11, 12, 13, 21, 22, 23}; // JR
 const float DEG2RAD = 3.1416f/180.0f; 
 const float POS2RAW = 4095.0f/360.0f; 
 const float RAW2VEL = 0.02398f; // rad/s
-const uint16_t KP_TBL = 2500, KI_TBL = 300, KD_TBL = 1, DM_TBL = 4;
+const uint16_t DM_TBL = 4;
 
 class U2D2Node : public rclcpp::Node
 {
@@ -38,7 +38,13 @@ public:
     U2D2Node() : Node("u2d2_node")
     {
         this->declare_parameter<double>("delay_time", 0.01);
+        this->declare_parameter<uint16_t>("KP_TBL", 2500);
+        this->declare_parameter<uint16_t>("KI_TBL", 300);
+        this->declare_parameter<uint16_t>("KD_TBL", 1);
         this->get_parameter("delay_time", delay_time);
+        this->get_parameter("KP_TBL", KP_TBL);
+        this->get_parameter("KI_TBL", KI_TBL);
+        this->get_parameter("KD_TBL", KD_TBL);
         
         if (!initializeDynamixels()) {
             RCLCPP_ERROR(this->get_logger(), "Error during Dynamixel initialization. Shutting down.");
@@ -52,7 +58,7 @@ public:
         timer = this->create_wall_timer( std::chrono::duration<double>(delay_time),
                      std::bind(&U2D2Node::timerCallback, this));
             
-        RCLCPP_INFO(this->get_logger(), "El nodo u2d2 esta corriendo con dt: %.2f", delay_time);
+        RCLCPP_INFO(this->get_logger(), "El nodo u2d2 esta corriendo con dt: %.2f, kp: %d, ki: %d, kd: %d", delay_time,KP_TBL,KI_TBL,KD_TBL);
     }
 
     ~U2D2Node()
@@ -61,6 +67,10 @@ public:
     }
 
 private:
+    
+    double delay_time;
+    int KP_TBL, KI_TBL, KD_TBL;
+    
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr dynamixel_pub;
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr dynamixel_sub;
     rclcpp::TimerBase::SharedPtr timer;
@@ -73,8 +83,6 @@ private:
     std::unique_ptr<dynamixel::PacketHandler> packetHandler;
     std::unique_ptr<dynamixel::GroupSyncWrite> groupSyncWrite;
     std::unique_ptr<dynamixel::GroupBulkRead> groupBulkRead;
-    
-    double delay_time;
     
     bool initializeDynamixels()
     {
