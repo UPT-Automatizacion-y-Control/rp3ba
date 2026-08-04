@@ -1,9 +1,19 @@
 # rp3ba
 Robot paralelo de 3 brazos antropomorfos para simulación e implementación con motores dynamixel
 
+Clonar el repositorio
+```
+cd ~/ros2_ws/src/
+git clone https://github.com/UPT-Automatizacion-y-Control/rp3ba.git
+```
 Antes de compilar resolver las dependencias
 ```
+cd ~/ros2_ws/
 rosdep install -i --from-path src --rosdistro jazzy -y
+```
+Compilar el paquete
+```
+colcon build
 ```
 Dar permisos al puerto
 ```
@@ -15,11 +25,11 @@ Crear una regla udev:
 ```
 sudo nano /etc/udev/rules.d/99-ftdi-latency.rules
 ```
-Contenido:
+Escribir este contenido:
 ```
 ACTION=="add", SUBSYSTEM=="usb-serial", DRIVER=="ftdi_sio", ATTR{latency_timer}="1"
 ```
-Ejecutar:
+Guardar, cerrar y ejecutar:
 ```
 sudo udevadm control --reload-rules
 sudo udevadm trigger
