@@ -25,6 +25,7 @@ class PlatformStateNode(Node):
         self.joint_kin_pub = self.create_publisher( JointTrajectoryPoint, '/joint_kinematics', 10 )
         
         self.prev_time, self.prev_dq , self.prev_J = None, None, None
+        self.Q30 = np.zeros(3)
         self.get_logger().info("El nodo platform state esta corriendo")
 
         
@@ -38,10 +39,11 @@ class PlatformStateNode(Node):
 
         # Calculo de pose
         Q3 = self.estimacion_Q3(Q1, Q2)
+        np.copyto(self.Q30,Q3)
         Pef = self.cinematica_brazos(Q1, Q2, Q3)
         R_mat, t = self.calculo_pose(Pef)
         pose_msg = self.crear_msg_pose(R_mat, t, current_time)
-        self.pose_pub .publish(pose_msg)
+        self.pose_pub.publish(pose_msg)
         
         # Entradas de velocidad
         if not msg.velocity: return
@@ -130,7 +132,7 @@ class PlatformStateNode(Node):
                                (np.linalg.norm(P[:, 2] - P[:, 0]) - d)**2 ) * 1000.0
             return J
         
-        result = minimize( restriction_cost, np.zeros(3), method='Nelder-Mead', tol=1e-3,
+        result = minimize( restriction_cost, self.Q30, method='Nelder-Mead', tol=1e-3,
             options={ 'maxiter': 1000, 'xatol': 1e-6, 'fatol': 1e-3, 'disp': False } )
         
         if not result.success:
