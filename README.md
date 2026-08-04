@@ -7,7 +7,7 @@ rosdep install -i --from-path src --rosdistro jazzy -y
 ```
 Dar permisos al puerto
 ```
-sudo usermod -a -g dialout $USER
+sudo usermod -a -G dialout $USER
 ```
 Para leer las posiciones y velocidades de los dynamixel a una frecuencia alta es necesario modificar el latency_timer del FTDI de la U2D2 (la cual por lo general esta 16ms)
 
