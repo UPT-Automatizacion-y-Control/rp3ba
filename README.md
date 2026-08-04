@@ -1,21 +1,22 @@
 # rp3ba
 Robot paralelo de 3 brazos antropomorfos para simulación e implementación con motores dynamixel
 
-Clonar el repositorio
+Clonar el repositorio:
 ```
 cd ~/ros2_ws/src/
 git clone https://github.com/UPT-Automatizacion-y-Control/rp3ba.git
 ```
-Antes de compilar resolver las dependencias
+Antes de compilar resolver las dependencias:
 ```
 cd ~/ros2_ws/
 rosdep install -i --from-path src --rosdistro jazzy -y
 ```
-Compilar el paquete
+Compilar el paquete:
 ```
+cd ~/ros2_ws/
 colcon build
 ```
-Dar permisos al puerto
+Dar permisos al puerto:
 ```
 sudo usermod -a -G dialout $USER
 ```
@@ -34,6 +35,8 @@ Guardar, cerrar y ejecutar:
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
+
+Reiniciar la computadora
 
 Para mover el robot virtual:
 ```
