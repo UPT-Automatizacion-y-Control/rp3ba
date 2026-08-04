@@ -26,6 +26,8 @@
   <member_of_group>rosidl_interface_packages</member_of_group>
 
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>tf_transformations</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
