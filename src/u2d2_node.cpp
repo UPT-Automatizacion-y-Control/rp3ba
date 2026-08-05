@@ -215,6 +215,7 @@ private:
                 pos_raw = groupBulkRead->getData(DXL_IDS[k], ADDR_PRESENT_POS, SIZE_POS);
                 msg_out.position[k] =(pos_raw/POS2RAW)*DEG2RAD - M_PI; 
             }
+            msg_out.header.stamp = this->get_clock()->now();
             dynamixel_pub->publish(msg_out);
         }
         else 
