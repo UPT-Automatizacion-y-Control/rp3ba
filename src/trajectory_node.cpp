@@ -26,9 +26,6 @@ public:
         sub_user_goal = this->create_subscription<geometry_msgs::msg::PoseStamped>("user_goal", 10,
             std::bind(&TrajectoryNode::userGoalCallback, this, std::placeholders::_1) );
 
-        sub_platfom_pose = this->create_subscription<geometry_msgs::msg::PoseStamped>("platform_pose", 10,
-            std::bind(&TrajectoryNode::pPoseCallback, this, std::placeholders::_1) );
-
         timer = this->create_wall_timer( std::chrono::duration<double>(delay_time),
                      std::bind(&TrajectoryNode::timerCallback, this));
 
@@ -45,9 +42,7 @@ private:
     double delay_time, t0;
     int modo = 0;
     bool transition = true;
-    bool ppose_recieved = false;
     geometry_msgs::msg::PoseStamped user_goal;
-    geometry_msgs::msg::PoseStamped ppose;
     
     const float transition_time = 2.0;
     const double A_x = 0.02, A_y = 0.02, A_z = 0.02;
@@ -55,6 +50,7 @@ private:
     const double A_roll = 0.25, A_pitch = 0.25, A_yaw = 0.25;
     const double T_roll = 4.00, T_pitch = 8.00, T_yaw = 5.00;   
     const double h_x = 0.0, h_y = 0.0, h_z = 0.17, h_roll = 0.0, h_pitch = 0.0, h_yaw = 0.0 ;
+    geometry_msgs::msg::PoseStamped current_ppose = createPoseStamped(h_x, h_y, h_z, h_roll, h_pitch, h_yaw); 
 
     void modoCallback(const std_msgs::msg::Int16::SharedPtr msg)
     {
@@ -68,12 +64,6 @@ private:
         user_goal = *msg;
     }
 
-    void pPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-    {
-            ppose = *msg;
-            ppose_recieved = true;
-    }
-
     void timerCallback()
     {            
         double t = this->now().seconds() - t0;
@@ -83,17 +73,14 @@ private:
         
         if (transition)
         {
-            if (!ppose_recieved)
-                  return;
-                  
             if (t < transition_time)
             {
-                auto p = ppose.pose.position;
+                auto p = current_ppose.pose.position;
                 x = p.x + (h_x - p.x)*t/transition_time;   
                 y = p.y + (h_y - p.y)*t/transition_time;   
                 z = p.z + (h_z - p.z)*t/transition_time;
                                 
-                auto q = ppose.pose.orientation;
+                auto q = current_ppose.pose.orientation;
                 tf2::Quaternion quat(q.x, q.y, q.z, q.w);
                 double p_roll, p_pitch, p_yaw;
                 tf2::Matrix3x3(quat).getRPY(p_roll, p_pitch, p_yaw);
@@ -105,6 +92,7 @@ private:
             else
             {
                 transition = false;
+                current_ppose = createPoseStamped(h_x, h_y, h_z, h_roll, h_pitch, h_yaw); 
                 t0 = this->now().seconds();
             }
         }
@@ -133,10 +121,11 @@ private:
                 case 9:
                     msg = user_goal; break;
             }
+            current_ppose = createPoseStamped(x, y, z, roll, pitch, yaw);
         }
         
         if (modo != 9)
-            msg = createPoseStamped(x, y, z, roll, pitch, yaw);     
+            msg = createPoseStamped(x, y, z, roll, pitch, yaw);    
         
         trayectoria_pub->publish(msg);
     }
