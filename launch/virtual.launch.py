@@ -5,6 +5,8 @@ from launch.substitutions import Command, LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 
 DELAY_TIME = 1/120
+KP_TBL, KI_TBL, KD_TBL = 150, 0, 0 # Ganancias PID para rehabilitador
+#KP_TBL, KI_TBL, KD_TBL = 2500, 300, 1  # Ganancias PID para Ball on Plate
 
 def generate_launch_description():
 
@@ -16,9 +18,19 @@ def generate_launch_description():
         package='rp3ba', executable='inv_kinematics_node.py', name='Inv_k', output='screen',
         remappings=[ ('angulos', 'qd') ,('pose', 'pd') ] )
         
-    u2d2_virtual_node = Node( 
+    #u2d2_node = Node( 
+    #    package='rp3ba', executable='u2d2_node', name='U2D2', output='screen', 
+    #    parameters=[{'delay_time': DELAY_TIME, 'KP_TBL': KP_TBL, 'KI_TBL': KI_TBL, 'KD_TBL': KD_TBL}], 
+    #    remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ]  )
+        
+    u2d2_node = Node( 
         package='rp3ba', executable='u2d2_virtual_node.py', name='U2D2_virtual', output='screen', 
-        parameters=[{'delay_time': DELAY_TIME},{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') , ('pose', 'pd') ]  )
+        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ]  )
+        
+    dir_kinematics_node = Node( 
+        package='rp3ba', executable='dir_kinematics_node.py', name='Dir_k', output='screen', 
+        parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
+        remappings=[ ('joints_state', 'qm'), ('joints_state_full', 'qmf')]  )
         
     rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
         
@@ -37,7 +49,7 @@ def generate_launch_description():
     robot_state_publisher_arms_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_arms',
         output='screen', parameters=[{'robot_description': robot_desc_arms}], arguments=[urdf_arms], 
-        remappings=[ ('joint_states', 'qm'), ('robot_description','robot_description_arms') ]  )
+        remappings=[ ('joint_states', 'qmf'), ('robot_description','robot_description_arms') ]  )
 
     robot_state_publisher_mobile_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_mobile',
@@ -47,7 +59,8 @@ def generate_launch_description():
     return LaunchDescription( [ 
         trajectory_node, 
         inv_kinematics_node,
-        u2d2_virtual_node,
+        u2d2_node,
+        dir_kinematics_node,
         rviz_node,
         robot_state_publisher_arms_node,
         robot_state_publisher_mobile_node] )

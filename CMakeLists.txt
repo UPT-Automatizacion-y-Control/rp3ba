@@ -29,6 +29,7 @@ install(TARGETS
 
 install(PROGRAMS
   scripts/inv_kinematics_node.py
+  scripts/dir_kinematics_node.py
   scripts/u2d2_virtual_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
