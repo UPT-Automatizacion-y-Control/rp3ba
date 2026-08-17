@@ -40,12 +40,19 @@ Reiniciar la computadora
 
 Para mover el robot virtual:
 ```
-ros2 launch rp3ba virtual.launch.py 
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
 ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
 ```
 
 Para mover el robot real:
 ```
-ros2 launch rp3ba robot.launch.py 
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real 
 ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
+```
+Adicionalmente, al cargar el robot real se pueden elegir dos sintonizaciones del PID:
+```
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID := soft
+```
+```
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID := accuracy
 ```
