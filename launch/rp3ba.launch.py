@@ -13,18 +13,18 @@ def generate_launch_description():
     mode_arg = DeclareLaunchArgument(
         'operation_mode',
         default_value='virtual',
-        description='Execution mode for U2D2 node: "real" or "virtual"'
+        description='Operation mode for U2D2 node: "real" or "virtual"'
     )
 
     application_arg = DeclareLaunchArgument(
-        'application',
-        default_value='rehabilitator',
-        description='Application mode: "rehabilitator" or "parallel_robot"'
+        'PID',
+        default_value='soft',
+        description='PID sintonization: "soft" or "accuracy"'
     )
 
-    kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 150' ])
-    ki_tbl = PythonExpression([ '300 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 0' ])
-    kd_tbl = PythonExpression([ '1 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 0' ])
+    kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 150' ])
+    ki_tbl = PythonExpression([ '300 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
+    kd_tbl = PythonExpression([ '1 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
 
     trajectory_node = Node(
         package='rp3ba', executable='trajectory_node', name='Ref', output='screen',
