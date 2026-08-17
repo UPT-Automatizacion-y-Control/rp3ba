@@ -1,14 +1,30 @@
 from os.path import join
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
-from launch.substitutions import Command, LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 
 DELAY_TIME = 1/120
-KP_TBL, KI_TBL, KD_TBL = 150, 0, 0 # Ganancias PID para rehabilitador
-#KP_TBL, KI_TBL, KD_TBL = 2500, 300, 1  # Ganancias PID para Ball on Plate
 
 def generate_launch_description():
+
+    mode_arg = DeclareLaunchArgument(
+        'operation_mode',
+        default_value='virtual',
+        description='Execution mode for U2D2 node: "real" or "virtual"'
+    )
+
+    application_arg = DeclareLaunchArgument(
+        'application',
+        default_value='rehabilitator',
+        description='Application mode: "rehabilitator" or "parallel_robot"'
+    )
+
+    kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 150' ])
+    ki_tbl = PythonExpression([ '300 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 0' ])
+    kd_tbl = PythonExpression([ '1 if \"', LaunchConfiguration('application'), '\" == \"parallel_robot\" else 0' ])
 
     trajectory_node = Node(
         package='rp3ba', executable='trajectory_node', name='Ref', output='screen',
@@ -18,14 +34,16 @@ def generate_launch_description():
         package='rp3ba', executable='inv_kinematics_node.py', name='Inv_k', output='screen',
         remappings=[ ('angulos', 'qd') ,('pose', 'pd') ] )
         
-    #u2d2_node = Node( 
-    #    package='rp3ba', executable='u2d2_node', name='U2D2', output='screen', 
-    #    parameters=[{'delay_time': DELAY_TIME, 'KP_TBL': KP_TBL, 'KI_TBL': KI_TBL, 'KD_TBL': KD_TBL}], 
-    #    remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ]  )
+    u2d2_robot_node = Node( 
+        package='rp3ba', executable='u2d2_node', name='U2D2', output='screen', 
+        parameters=[{'delay_time': DELAY_TIME, 'KP_TBL': kp_tbl, 'KI_TBL': ki_tbl, 'KD_TBL': kd_tbl}], 
+        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
+        condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'real'"])) )
         
-    u2d2_node = Node( 
+    u2d2_virtual_node = Node( 
         package='rp3ba', executable='u2d2_virtual_node.py', name='U2D2_virtual', output='screen', 
-        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ]  )
+        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
+        condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'virtual'"])) )
         
     dir_kinematics_node = Node( 
         package='rp3ba', executable='dir_kinematics_node.py', name='Dir_k', output='screen', 
@@ -57,10 +75,15 @@ def generate_launch_description():
         remappings=[ ('joint_states', 'joint_states_mobile'), ('robot_description','robot_description_mobile') ] )
 
     return LaunchDescription( [ 
+        mode_arg,
+        application_arg,
         trajectory_node, 
         inv_kinematics_node,
-        u2d2_node,
+        u2d2_robot_node,
+        u2d2_virtual_node,
         dir_kinematics_node,
         rviz_node,
         robot_state_publisher_arms_node,
         robot_state_publisher_mobile_node] )
+
+
