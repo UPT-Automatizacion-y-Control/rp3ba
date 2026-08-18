@@ -26,7 +26,7 @@ def generate_launch_description():
         description='Name of the directory/package for rviz_config_path'
     )
 
-    kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 150' ])
+    kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 200' ])
     ki_tbl = PythonExpression([ '300 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
     kd_tbl = PythonExpression([ '1 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
 
