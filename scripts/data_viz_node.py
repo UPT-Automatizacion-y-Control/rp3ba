@@ -18,7 +18,7 @@ from tf2_ros import TransformBroadcaster
 DXL_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JR
 H0, H1, H2, H3, H4 = 0.175, 0.0667, 0.0784, 0.0848, 0.0916
 
-class DirKinematicsNode(Node):
+class DataVizNode(Node):
     def __init__(self):
         super().__init__('pose_to_tf')
 
@@ -32,7 +32,7 @@ class DirKinematicsNode(Node):
         
         self.Q30 = np.zeros(3)
 
-        self.get_logger().info("El nodo direct kinematics esta corriendo")
+        self.get_logger().info("El nodo data for vizualization esta corriendo")
 
     def joints_callback(self, msg):
         joint_map = dict(zip(msg.name, msg.position))        
@@ -121,7 +121,7 @@ class DirKinematicsNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DirKinematicsNode()
+    node = DataVizNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

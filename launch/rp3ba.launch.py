@@ -49,10 +49,10 @@ def generate_launch_description():
         remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
         condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'virtual'"])) )
         
-    dir_kinematics_node = Node( 
-        package='rp3ba', executable='dir_kinematics_node.py', name='Dir_k', output='screen', 
+    data_viz_node = Node( 
+        package='rp3ba', executable='data_viz_node.py', name='Data_viz', output='screen', 
         parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
-        remappings=[ ('joints_state', 'qm'), ('joints_state_full', 'qmf')]  )
+        remappings=[ ('joints_state', 'qm'), ('joints_state_full', 'qv')]  )
         
     rviz_config_path = PathJoinSubstitution([
         FindPackageShare(LaunchConfiguration('rviz_config_dir')), 'rviz', 'config.rviz' ])
@@ -72,7 +72,7 @@ def generate_launch_description():
     robot_state_publisher_arms_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_arms',
         output='screen', parameters=[{'robot_description': robot_desc_arms}], arguments=[urdf_arms], 
-        remappings=[ ('joint_states', 'qmf'), ('robot_description','robot_description_arms') ]  )
+        remappings=[ ('joint_states', 'qv'), ('robot_description','robot_description_arms') ]  )
 
     robot_state_publisher_mobile_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_mobile',
@@ -87,7 +87,7 @@ def generate_launch_description():
         inv_kinematics_node,
         u2d2_robot_node,
         u2d2_virtual_node,
-        dir_kinematics_node,
+        data_viz_node,
         rviz_node,
         robot_state_publisher_arms_node,
         robot_state_publisher_mobile_node] )
