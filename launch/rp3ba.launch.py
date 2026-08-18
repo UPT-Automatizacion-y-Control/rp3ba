@@ -2,8 +2,9 @@ from os.path import join
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
 DELAY_TIME = 1/120
@@ -11,15 +12,18 @@ DELAY_TIME = 1/120
 def generate_launch_description():
 
     mode_arg = DeclareLaunchArgument(
-        'operation_mode',
-        default_value='virtual',
+        'operation_mode', default_value='virtual',
         description='Operation mode for U2D2 node: "real" or "virtual"'
     )
 
     application_arg = DeclareLaunchArgument(
-        'PID',
-        default_value='soft',
+        'PID', default_value='soft',
         description='PID sintonization: "soft" or "accuracy"'
+    )
+
+    rviz_config_dir_arg = DeclareLaunchArgument(
+        'rviz_config_dir', default_value='rp3ba',
+        description='Name of the directory/package for rviz_config_path'
     )
 
     kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 150' ])
@@ -50,7 +54,8 @@ def generate_launch_description():
         parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
         remappings=[ ('joints_state', 'qm'), ('joints_state_full', 'qmf')]  )
         
-    rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
+    rviz_config_path = PathJoinSubstitution([
+        FindPackageShare(LaunchConfiguration('rviz_config_dir')), 'rviz', 'config.rviz' ])
         
     rviz_node = Node(
         package='rviz2', executable='rviz2', name='rviz2', output='screen',
@@ -77,6 +82,7 @@ def generate_launch_description():
     return LaunchDescription( [ 
         mode_arg,
         application_arg,
+        rviz_config_dir_arg,
         trajectory_node, 
         inv_kinematics_node,
         u2d2_robot_node,
