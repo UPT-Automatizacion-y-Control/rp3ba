@@ -10,15 +10,13 @@ DELAY_TIME = 1/120
 
 def generate_launch_description():
 
-    mode_arg = DeclareLaunchArgument(
+    mode_arg = DeclareLaunchArgument( 
         'operation_mode', default_value='virtual',
-        description='Operation mode for U2D2 node: "real" or "virtual"'
-    )
+        description='Operation mode for U2D2 node: "real" or "virtual"' )
 
-    application_arg = DeclareLaunchArgument(
+    application_arg = DeclareLaunchArgument( 
         'PID', default_value='soft',
-        description='PID sintonization: "soft" or "accuracy"'
-    )
+        description='PID sintonization: "soft" or "accuracy"' )
 
     kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 200' ])
     ki_tbl = PythonExpression([ '300 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
@@ -26,30 +24,30 @@ def generate_launch_description():
 
     trajectory_node = Node(
         package='rp3ba', executable='trajectory_node', name='ref', output='screen',
-        parameters=[{'delay_time': DELAY_TIME}], remappings=[ ('trayectoria', 'pd') ] )
+        parameters=[{'delay_time': DELAY_TIME}], remappings=[ ('trayectoria', 'pose_d') ] )
 
     inv_kinematics_node = Node(
         package='rp3ba', executable='inv_kinematics_node.py', name='inv_kin', output='screen',
-        remappings=[ ('angulos', 'qd') ,('pose', 'pd') ] )
+        remappings=[ ('pose', 'pose_d'), ('angulos', 'joints_d') ] )
         
     u2d2_robot_node = Node( 
         package='rp3ba', executable='u2d2_node', name='U2D2', output='screen', 
         parameters=[{'delay_time': DELAY_TIME, 'KP_TBL': kp_tbl, 'KI_TBL': ki_tbl, 'KD_TBL': kd_tbl}], 
-        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
+        remappings=[ ('joints_goal', 'joints_d'), ('joints_state', 'joints_m') ],
         condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'real'"])) )
         
     u2d2_virtual_node = Node( 
         package='rp3ba', executable='u2d2_virtual_node.py', name='U2D2_virtual', output='screen', 
-        remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
+        remappings=[ ('joints_goal', 'joints_d'), ('joints_state', 'joints_m') ],
         condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'virtual'"])) )
 
     robot_state_node = Node(
         package='rp3ba', executable='robot_state_node.py', name='rob_state', 
-        output='screen', remappings=[ ('reference_state', 'qd'), ('joint_data', 'qm'), ('static_state', 'ss') ] )
+        output='screen', remappings=[ ('reference_state', 'joints_d'), ('joint_data', 'joints_m'), ('static_state', 'pos_state') ] )
         
     visualization_data_node = Node( 
         package='rp3ba', executable='visualization_data_node.py', name='viz_data', output='screen', 
-        remappings=[ ('static_state', 'ss'), ('joint_state_viz', 'qsv')]  )
+        remappings=[ ('static_state', 'pos_state'), ('joint_state_viz', 'viz_state')]  )
         
     rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
         
@@ -68,12 +66,12 @@ def generate_launch_description():
     robot_state_publisher_arms_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='rsp_arms',
         output='screen', parameters=[{'robot_description': robot_desc_arms}], arguments=[urdf_arms], 
-        remappings=[ ('joint_states', 'qsv'), ('robot_description','robot_description_arms') ]  )
+        remappings=[ ('joint_states', 'viz_state'), ('robot_description','robot_description_arms') ]  )
 
     robot_state_publisher_mobile_node = Node(
         package='robot_state_publisher', executable='robot_state_publisher', name='rsp_mobile',
         output='screen', parameters=[{'robot_description': robot_desc_mobile}], arguments=[urdf_mobile], 
-        remappings=[ ('joint_states', 'joint_states_mobile'), ('robot_description','robot_description_mobile') ] )
+        remappings=[ ('joint_states', 'unused'), ('robot_description','robot_description_mobile') ] )
 
     return LaunchDescription( [ 
         mode_arg,
@@ -87,5 +85,3 @@ def generate_launch_description():
         rviz_node,
         robot_state_publisher_arms_node,
         robot_state_publisher_mobile_node] )
-
-
