@@ -36,7 +36,6 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr trayectoria_pub;
     rclcpp::Subscription<std_msgs::msg::Int16>::SharedPtr sub_modo;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_user_goal;
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_platfom_pose;
     rclcpp::TimerBase::SharedPtr timer;
 
     double delay_time, t0;
