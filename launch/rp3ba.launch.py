@@ -2,9 +2,8 @@ from os.path import join
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
 DELAY_TIME = 1/120
@@ -16,14 +15,14 @@ def generate_launch_description():
         description='Operation mode for U2D2 node: "real" or "virtual"'
     )
 
+    state_mode_arg = DeclareLaunchArgument(
+        'robot_state_mode', default_value='position_only',
+        description='State mode for robot state node: "position_only" or "full_state", full_state publish mobile base data and user_wrench'
+    )
+
     application_arg = DeclareLaunchArgument(
         'PID', default_value='soft',
         description='PID sintonization: "soft" or "accuracy"'
-    )
-
-    rviz_config_dir_arg = DeclareLaunchArgument(
-        'rviz_config_dir', default_value='rp3ba',
-        description='Name of the directory/package for rviz_config_path'
     )
 
     kp_tbl = PythonExpression([ '2500 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 200' ])
@@ -31,11 +30,11 @@ def generate_launch_description():
     kd_tbl = PythonExpression([ '1 if \"', LaunchConfiguration('PID'), '\" == \"accuracy\" else 0' ])
 
     trajectory_node = Node(
-        package='rp3ba', executable='trajectory_node', name='Ref', output='screen',
+        package='rp3ba', executable='trajectory_node', name='ref', output='screen',
         parameters=[{'delay_time': DELAY_TIME}], remappings=[ ('trayectoria', 'pd') ] )
 
     inv_kinematics_node = Node(
-        package='rp3ba', executable='inv_kinematics_node.py', name='Inv_k', output='screen',
+        package='rp3ba', executable='inv_kinematics_node.py', name='inv_kin', output='screen',
         remappings=[ ('angulos', 'qd') ,('pose', 'pd') ] )
         
     u2d2_robot_node = Node( 
@@ -48,14 +47,18 @@ def generate_launch_description():
         package='rp3ba', executable='u2d2_virtual_node.py', name='U2D2_virtual', output='screen', 
         remappings=[ ('joints_goal', 'qd'), ('joints_state', 'qm') ],
         condition=IfCondition(PythonExpression(["'", LaunchConfiguration('operation_mode'), "' == 'virtual'"])) )
+
+    robot_state_node = Node(
+        package='rp3ba', executable='robot_state_node.py', name='rob_state', 
+        parameters=[{'state_mode': LaunchConfiguration('robot_state_mode')}], 
+        output='screen', remappings=[ ('joint_data', 'qm'), ('joint_state', 'qs') , ('reference_state', 'qd') ] )
         
-    data_viz_node = Node( 
-        package='rp3ba', executable='data_viz_node.py', name='Data_viz', output='screen', 
+    visualization_data_node = Node( 
+        package='rp3ba', executable='visualization_data_node.py', name='viz_data', output='screen', 
         parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
-        remappings=[ ('joints_state', 'qm'), ('joints_state_full', 'qv')]  )
+        remappings=[ ('joint_state', 'qs'), ('joint_state_viz', 'qsv')]  )
         
-    rviz_config_path = PathJoinSubstitution([
-        FindPackageShare(LaunchConfiguration('rviz_config_dir')), 'rviz', 'config.rviz' ])
+    rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
         
     rviz_node = Node(
         package='rviz2', executable='rviz2', name='rviz2', output='screen',
@@ -70,24 +73,25 @@ def generate_launch_description():
         robot_desc_mobile = infp_mobile.read()
         
     robot_state_publisher_arms_node = Node(
-        package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_arms',
+        package='robot_state_publisher', executable='robot_state_publisher', name='rsp_arms',
         output='screen', parameters=[{'robot_description': robot_desc_arms}], arguments=[urdf_arms], 
-        remappings=[ ('joint_states', 'qv'), ('robot_description','robot_description_arms') ]  )
+        remappings=[ ('joint_states', 'qsv'), ('robot_description','robot_description_arms') ]  )
 
     robot_state_publisher_mobile_node = Node(
-        package='robot_state_publisher', executable='robot_state_publisher', name='robot_state_publisher_mobile',
+        package='robot_state_publisher', executable='robot_state_publisher', name='rsp_mobile',
         output='screen', parameters=[{'robot_description': robot_desc_mobile}], arguments=[urdf_mobile], 
         remappings=[ ('joint_states', 'joint_states_mobile'), ('robot_description','robot_description_mobile') ] )
 
     return LaunchDescription( [ 
         mode_arg,
+        state_mode_arg,
         application_arg,
-        rviz_config_dir_arg,
         trajectory_node, 
         inv_kinematics_node,
         u2d2_robot_node,
         u2d2_virtual_node,
-        data_viz_node,
+        robot_state_node,
+        visualization_data_node,
         rviz_node,
         robot_state_publisher_arms_node,
         robot_state_publisher_mobile_node] )
