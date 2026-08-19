@@ -66,13 +66,10 @@ El topico /modo define la trayectoria de referencia:
 
 ## Opciones avanzadas
 
-El archivo rp3ba.launch.py tiene tres argumentos:
+El archivo rp3ba.launch.py tiene dos argumentos:
 
 - operation_mode
-- robot_state_mode
 - PID
-
-Cada uno tiene valores por default y se pueden definir de manera independiente
 
 El argumento operation_mode define si se usa el robot real o virtual:
 ```
@@ -84,23 +81,12 @@ ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
 ros2 launch rp3ba rp3ba.launch.py operation_mode:=real
 ```
 
-El argumento robot_state_mode define que tanta información se publica:
-```
-# (default) Solo publica el estado articular
-ros2 launch rp3ba rp3ba.launch.py robot_state_mode:=joint_state_only 
-```
-```
-# Publica tambien el estado de la plataforma móvil y la fuerza que ejerce el usuario
-ros2 launch rp3ba rp3ba.launch.py robot_state_mode:=full_state 
-```
-
 El argumento PID define la sintonización del PID de los motores dynamixel (se ignoran en operation_mode:=virtual):
 ```
 # (default) Control P de ganancias bajas, para usarse como rehabilitador
-ros2 launch rp3ba rp3ba.launch.py PID:=soft
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID:=soft
 ```
 ```
 # Control PD de ganancias altas, para usarse en seguimiento de trayectorias
-ros2 launch rp3ba rp3ba.launch.py PID:=accuracy
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID:=accuracy
 ```
-
