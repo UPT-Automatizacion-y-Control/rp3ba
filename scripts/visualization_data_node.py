@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import rclpy
-import time
 
 from rclpy.node import Node
 from geometry_msgs.msg import TransformStamped
@@ -12,15 +11,13 @@ from rp3ba_interfaces.msg import ParallelStaticState
 
 JR_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JointRobot
 
-class MobileBaseVisualizationNode(Node):
+class VisualizationDataNode(Node):
     def __init__(self):
         super().__init__('vis_data')
 
-        self.declare_parameter('parent_frame', 'World_Link')
-        self.declare_parameter('child_frame', 'MB_Link')
         self.transform_stamped = TransformStamped()
-        self.transform_stamped.header.frame_id = self.get_parameter('parent_frame').get_parameter_value().string_value
-        self.transform_stamped.child_frame_id = self.get_parameter('child_frame').get_parameter_value().string_value
+        self.transform_stamped.header.frame_id = 'World_Link'
+        self.transform_stamped.child_frame_id = 'MB_Link'
         self.transform_broadcaster = TransformBroadcaster(self)
         
         self.sub = self.create_subscription( ParallelStaticState,'static_state', self.state_callback, 10 )
@@ -47,7 +44,7 @@ class MobileBaseVisualizationNode(Node):
         
 def main(args=None):
     rclpy.init(args=args)
-    node = MobileBaseVisualizationNode()
+    node = VisualizationDataNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

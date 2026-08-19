@@ -49,7 +49,6 @@ def generate_launch_description():
         
     visualization_data_node = Node( 
         package='rp3ba', executable='visualization_data_node.py', name='viz_data', output='screen', 
-        parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
         remappings=[ ('static_state', 'ss'), ('joint_state_viz', 'qsv')]  )
         
     rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
