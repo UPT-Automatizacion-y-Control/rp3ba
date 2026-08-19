@@ -9,8 +9,7 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 
 from sensor_msgs.msg import JointState
-from rp3ba_interfaces.msg import ParallelJointState
-from rp3ba_interfaces.msg import ParallelMobileBaseState
+from rp3ba_interfaces.msg import ParallelStaticState
 from geometry_msgs.msg import WrenchStamped
 
 DXL_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JR
@@ -32,35 +31,28 @@ class RobotStateNode(Node):
     def __init__(self):
         super().__init__('robot_state_node')
         
-        self.declare_parameter('state_mode', 'position_only')
-        self.state_mode = self.get_parameter('state_mode').get_parameter_value().string_value
-        
         self.ref_sub = self.create_subscription(JointState, 'reference_state', self.reference_callback, 10)
         self.joint_sub = self.create_subscription(JointState, 'joint_data', self.joint_callback, 10)
-        self.joint_state_pub = self.create_publisher(ParallelJointState, 'joint_state', 10)
-        self.mobile_base_state_pub = self.create_publisher(ParallelMobileBaseState, 'mobile_base_state', 10)
+        self.state_pub = self.create_publisher(ParallelStaticState, 'static_state', 10)
         self.wrench_pub = self.create_publisher(WrenchStamped, 'user_wrench', 10)
-
-        self.mobile_base_state_msg = ParallelMobileBaseState() 
-        
-        self.user_wrench_msg = WrenchStamped() 
-        self.user_wrench_msg.header.frame_id = "MB_Link"
         
         self.reference_msg, self.base_msg = None, None
         
-        self.alpha_vel, self.alpha_acc = 0.95, 0.95
-        self.prev_time, self.prev_Q, self.prev_Q_dot, self.prev_Q_ddot, self.prev_Jbm_inv = None, None, np.zeros(9), np.zeros(9), None
+        self.filter_gain = 0.95
+        self.prev_time, self.prev_Jbm_inv = None, None
+        self.prev_Q, self.prev_Q_dot, self.prev_Q_ddot= None, np.zeros(9), np.zeros(9)
         self.q3_init = np.zeros(3)
         
         self.q0 = []
         for k in range(3):
             self.q0.append(k*2.*pi/3. + pi)
         
-        self.joint_state_msg = ParallelJointState() 
-        self.joint_state_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"] # Joint Robot
-        self.joint_state_msg.joints_position = [0.0]*9 
-        self.joint_state_msg.joints_velocity = [0.0]*9 
-        self.joint_state_msg.joints_acceleration = [0.0]*9 
+        self.wrench_msg = WrenchStamped() 
+        self.wrench_msg.header.frame_id = "MB_Link"
+        
+        self.state_msg = ParallelStaticState() 
+        self.state_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
+        self.state_msg.joints_position = [0.0]*9 
         
         self.rc = []
         self.rc_skew = []
@@ -80,7 +72,7 @@ class RobotStateNode(Node):
                                        [sin(q0_),  cos(q0_), 0.], 
                                        [0.,        0.,       1.]]))
         
-        self.get_logger().info("El nodo robot state esta corriendo en modo " + self.get_parameter('state_mode').get_parameter_value().string_value)
+        self.get_logger().info("El nodo robot state esta corriendo")
         
     def reference_callback(self, msg):
         self.reference_msg = msg    
@@ -94,121 +86,99 @@ class RobotStateNode(Node):
         q1 = np.array([ joint_map[f"dxl_{i}"] for i in DXL_IDS[:3] ])
         q2 = np.array([ joint_map[f"dxl_{i}"] for i in DXL_IDS[3:6] ])
         q3 = self.estimacion_q3(q1, q2)
-        np.copyto(self.q3_init, q3) # Condicion inicial para las aproximaciones numericas
+        Q = np.array([q1, q2, q3]).reshape(-1)    
+                 
+        # Pose de la plataforma        
+        r_ef = self.cinematica_brazos(q1, q2, q3)
+        R_bm, r_bm = self.calculo_pose_base_movil(r_ef)
+        quat_bm = Rotation.from_matrix(R_bm).as_quat()  
         
-        Q = np.array([q1, q2, q3]).reshape(-1)      
+        # Asignar datos articulares al mensaje static_state
+        self.state_msg.header.stamp = msg.header.stamp
+        self.state_msg.joints_position[:] = array('d', Q)
               
+        # Desempaquetar los elementos de la pose
+        ppp = self.state_msg.platform_pose.position
+        ppo = self.state_msg.platform_pose.orientation
+                
+        # Asignar datos de la pose al mensaje static_state
+        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
+        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
+                
+        #Publicar Parallel Static State
+        self.state_pub.publish(self.state_msg)  
+           
         # Requisitos para calcular derivadas
         if self.prev_Q is None:
             self.prev_time, self.prev_Q = current_time, Q
             return
         
+        # Cálculo de las derivadas articulares
         dt = (current_time - self.prev_time).nanoseconds *1e-9
-        Q_dot = self.alpha_vel*self.prev_Q_dot + (1. - self.alpha_vel)*(Q - self.prev_Q) / dt
-        Q_ddot = self.alpha_acc*self.prev_Q_ddot + (1. - self.alpha_acc)*(Q_dot - self.prev_Q_dot) / dt
-        
-        # Asignar datos al mensaje robot_state
-        self.joint_state_msg.header.stamp = msg.header.stamp
-        self.joint_state_msg.joints_position[:] = array('d', Q)
-        self.joint_state_msg.joints_velocity[:] = array('d', Q_dot)
-        self.joint_state_msg.joints_acceleration[:] = array('d', Q_ddot)
-            
-        self.joint_state_pub.publish(self.joint_state_msg)   
-        
+        Q_dot = self.filter_gain*self.prev_Q_dot + (1. - self.filter_gain)*(Q - self.prev_Q) / dt
+        Q_ddot = self.filter_gain*self.prev_Q_ddot + (1. - self.filter_gain)*(Q_dot - self.prev_Q_dot) / dt
+       
         # Guardar estados previos
         self.prev_time, self.prev_Q, self.prev_Q_dot = current_time, Q, Q_dot
-        
-        if self.state_mode == "full_state" :
-        
-            # Pose de la plataforma        
-            r_ef = self.cinematica_brazos(q1, q2, q3)
-            R_bm, r_bm = self.calculo_pose_base_movil(r_ef)
-            quat_bm = Rotation.from_matrix(R_bm).as_quat()  
 
-            # Twist  de la plataforma    
-            Jvb = self.calculo_jacobiano_lineal_brazos(q1,q2,q3)
-            Jbm = self.calculo_jacobiano_base_movil(Jvb)
-            Jbm_inv = np.linalg.pinv(Jbm)
-            xi = Jbm_inv @ Q_dot
+        # Twist de la plataforma móvil     
+        Jvb = self.calculo_jacobiano_lineal_brazos(q1,q2,q3)
+        Jbm = self.calculo_jacobiano_base_movil(Jvb)
+        Jbm_inv = np.linalg.pinv(Jbm)
+        xi = Jbm_inv @ Q_dot
                   
-            # Requisitos para calcular aceleración
-            if self.prev_Jbm_inv is None:
-                self.prev_time, self.prev_Q, self.prev_Q_dot, self.prev_Jbm_inv = current_time, Q, Q_dot, Jbm_inv
-                return
+        # Requisitos para calcular aceleración
+        if self.prev_Jbm_inv is None:
+            self.prev_time, self.prev_Q, self.prev_Q_dot, self.prev_Jbm_inv = current_time, Q, Q_dot, Jbm_inv
+            return
             
-            # Aceleración de la plataforma móvil        
-            Jbm_inv_dot = (Jbm_inv - self.prev_Jbm_inv) / dt
-            xi_dot = Jbm_inv @ Q_ddot + Jbm_inv_dot @ Q_dot
-            ap = xi_dot[:3] # aceleración lineal
-            alpha = xi_dot[3:] # aceleración angular
-            
-            # Desempaquetar los elementos del mensaje mobile_base_state
-            ppp = self.mobile_base_state_msg.platform_pose.position
-            ppo = self.mobile_base_state_msg.platform_pose.orientation
-            ptl = self.mobile_base_state_msg.platform_twist.linear
-            pta = self.mobile_base_state_msg.platform_twist.angular
-            pal = self.mobile_base_state_msg.platform_accel.linear
-            paa = self.mobile_base_state_msg.platform_accel.angular
-                
-            # Asignar datos al mensaje mobile_base_state
-            self.mobile_base_state_msg.header.stamp = msg.header.stamp
-            ppp.x, ppp.y, ppp.z = map(float, r_bm)  
-            ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
-            ptl.x, ptl.y, ptl.z = map(float, xi[:3])
-            pta.x, pta.y, pta.z = map(float, xi[3:])
-            pal.x, pal.y, pal.z = map(float, xi_dot[:3])
-            paa.x, paa.y, paa.z = map(float, xi_dot[3:])  
-                
-            self.mobile_base_state_pub.publish(self.mobile_base_state_msg)  
-                
-            # Desempaquetar los elementos del mensaje mobile_base_state
-            pal = self.mobile_base_state_msg.platform_accel.linear
-            paa = self.mobile_base_state_msg.platform_accel.angular   
-            ap = [pal.x, pal.y, pal.z]
-            alpha = [paa.x, paa.y, paa.z]
-                    
-            # Pares de actuación (control P)
-            reference_map = dict(zip(self.reference_msg.name, self.reference_msg.position))        
-            q1_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[:3] ])
-            q2_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[3:6] ])
-            tau1 = KP*(q1_ref - q1) 
-            tau2 = KP*(q2_ref - q2) 
-            tau = np.array([tau1, tau2, np.zeros(3)])   
-                
-            # Dinámica de la plataforma
-            Hb = self.calculo_inercia_brazos(q1, q2, q3)
-            Cb = self.calculo_coriolis_brazos(q1, q2, q3, Q_dot[0:3], Q_dot[3:6], Q_dot[6:])
-            Gb = self.calculo_gravedad_brazos(q1, q2, q3)
-                
-            Q_ddot = Q_ddot.reshape(3,3)
-            for k in range(3):
-                tau_dyn =  Hb[k] @ Q_ddot[:, k] + Cb[k]  + Gb[k]
-                
-            # Fuerzas de reacción en el sistema de coordenadas del mundo
-            fr = []
-            for k in range(3): 
-                fr.append(self.R_q0[k] @ np.linalg.pinv(Jvb[k].T) @ (tau[:,k] - tau_dyn))
-                
-            # Fuerzas y pares del usuario
-            fu = MP*(ap - GW) - np.sum(fr, axis=0) - np.array([0., 0., -1.55]) # offset por la fricción
-            nu = ( IP @ alpha - np.sum( [np.cross(R_bm @ self.rc[k], fr[k]) for k in range(3)], axis=0) )
-                
-            # Desempaquetar los elementos del mensaje user_wrench
-            uwf = self.user_wrench_msg.wrench.force
-            uwt = self.user_wrench_msg.wrench.torque
-                
-            # Asignar datos al mensaje user_wrench
-            uwf.x, uwf.y, uwf.z = map(float, fu)
-            uwt.x, uwt.y, uwt.z = map(float, nu)  
-                
-            # Publicar user_wrench
-            self.user_wrench_msg.header.stamp = msg.header.stamp
-            self.wrench_pub.publish(self.user_wrench_msg)   
-                  
-            # Guardar estado previo
-            self.prev_Jbm_inv = Jbm_inv
+        # Aceleración de la plataforma móvil        
+        Jbm_inv_dot = (Jbm_inv - self.prev_Jbm_inv) / dt
+        xi_dot = Jbm_inv @ Q_ddot + Jbm_inv_dot @ Q_dot
+        ap = xi_dot[:3] # aceleración lineal
+        alpha = xi_dot[3:] # aceleración angular
         
-        
+        # Guardar estado previo
+        self.prev_Jbm_inv = Jbm_inv
+                                 
+        # Pares de actuación (control P)
+        reference_map = dict(zip(self.reference_msg.name, self.reference_msg.position))        
+        q1_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[:3] ])
+        q2_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[3:6] ])
+        tau1 = KP*(q1_ref - q1) 
+        tau2 = KP*(q2_ref - q2) 
+        tau = np.array([tau1, tau2, np.zeros(3)])   
+                
+        # Dinámica de la plataforma
+        Hb = self.calculo_inercia_brazos(q1, q2, q3)
+        Cb = self.calculo_coriolis_brazos(q1, q2, q3, Q_dot[0:3], Q_dot[3:6], Q_dot[6:])
+        Gb = self.calculo_gravedad_brazos(q1, q2, q3)
+                
+        Q_ddot = Q_ddot.reshape(3,3)
+        for k in range(3):
+            tau_dyn =  Hb[k] @ Q_ddot[:, k] + Cb[k]  + Gb[k]
+                
+        # Fuerzas de reacción en el sistema de coordenadas del mundo
+        fr = []
+        for k in range(3): 
+            fr.append(self.R_q0[k] @ np.linalg.pinv(Jvb[k].T) @ (tau[:,k] - tau_dyn))
+                
+        # Fuerzas y pares del usuario
+        fu = MP*(ap - GW) - np.sum(fr, axis=0) - np.array([0., 0., -1.55]) # offset por la fricción
+        nu = ( IP @ alpha - np.sum( [np.cross(R_bm @ self.rc[k], fr[k]) for k in range(3)], axis=0) )
+                
+        # Desempaquetar los elementos del mensaje user_wrench
+        uwf = self.wrench_msg.wrench.force
+        uwt = self.wrench_msg.wrench.torque
+                
+        # Asignar datos al mensaje user_wrench
+        uwf.x, uwf.y, uwf.z = map(float, fu)
+        uwt.x, uwt.y, uwt.z = map(float, nu)  
+                
+        # Publicar wrench_msg
+        self.wrench_msg.header.stamp = msg.header.stamp
+        self.wrench_pub.publish(self.wrench_msg)   
+                        
     # Funciones auxiliares
         
     def estimacion_q3(self, q1, q2):      
@@ -222,7 +192,8 @@ class RobotStateNode(Node):
         result = minimize( restriction_cost, self.q3_init, method='Nelder-Mead', tol=1e-3,
             options={ 'maxiter': 1000, 'xatol': 1e-6, 'fatol': 1e-3, 'disp': False } )
         if not result.success:
-            self.get_logger().warn( f"Configuration is not feasible: {result.message}" )
+            self.get_logger().warn( f"Configuration is not feasible: {result.message}" )       
+        np.copyto(self.q3_init, result.x)
         return result.x
     
     def cinematica_brazos(self, q1_, q2_, q3_):      

@@ -15,11 +15,6 @@ def generate_launch_description():
         description='Operation mode for U2D2 node: "real" or "virtual"'
     )
 
-    state_mode_arg = DeclareLaunchArgument(
-        'robot_state_mode', default_value='position_only',
-        description='State mode for robot state node: "position_only" or "full_state", full_state publish mobile base data and user_wrench'
-    )
-
     application_arg = DeclareLaunchArgument(
         'PID', default_value='soft',
         description='PID sintonization: "soft" or "accuracy"'
@@ -50,13 +45,12 @@ def generate_launch_description():
 
     robot_state_node = Node(
         package='rp3ba', executable='robot_state_node.py', name='rob_state', 
-        parameters=[{'state_mode': LaunchConfiguration('robot_state_mode')}], 
-        output='screen', remappings=[ ('joint_data', 'qm'), ('joint_state', 'qs') , ('reference_state', 'qd') ] )
+        output='screen', remappings=[ ('reference_state', 'qd'), ('joint_data', 'qm'), ('static_state', 'ss') ] )
         
     visualization_data_node = Node( 
         package='rp3ba', executable='visualization_data_node.py', name='viz_data', output='screen', 
         parameters=[{'parent_frame': 'World_Link'},{'child_frame': 'MB_Link'}], 
-        remappings=[ ('joint_state', 'qs'), ('joint_state_viz', 'qsv')]  )
+        remappings=[ ('static_state', 'ss'), ('joint_state_viz', 'qsv')]  )
         
     rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
         
@@ -84,7 +78,6 @@ def generate_launch_description():
 
     return LaunchDescription( [ 
         mode_arg,
-        state_mode_arg,
         application_arg,
         trajectory_node, 
         inv_kinematics_node,
