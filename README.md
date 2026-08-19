@@ -1,6 +1,8 @@
 # rp3ba
 Robot paralelo de 3 brazos antropomorfos para simulación e implementación con motores dynamixel
 
+## Instalación
+
 Clonar el repositorio:
 ```
 cd ~/ros2_ws/src/
@@ -38,21 +40,67 @@ sudo udevadm trigger
 
 Reiniciar la computadora
 
-Para mover el robot virtual:
+## Uso básico
+
+Para cargar los nodos del robot se usa:
 ```
-ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
-ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
+ros2 launch rp3ba rp3ba.launch.py
 ```
 
-Para mover el robot real:
+Para publicar una referencia se usa:
 ```
-ros2 launch rp3ba rp3ba.launch.py operation_mode:=real 
-ros2 topic pub /modo std_msgs/msg/Int16 "{data: 2}" --once
+ros2 topic pub /modo std_msgs/msg/Int16 "{data: 1}" --once
 ```
-Adicionalmente, al cargar el robot real se pueden elegir dos sintonizaciones del PID:
+El topico /modo define la trayectoria de referencia:
+
+0. Home
+1. Traslación X
+2. Traslación Y
+3. Traslación Z
+4. Rotacion X
+5. Rotacion Y
+6. Rotacion Z
+7. Traslacion combinada XY
+8. Rotación combinada XY
+9. Definida por el usuario en el topico /user_goal
+
+## Opciones avanzadas
+
+El archivo rp3ba.launch.py tiene tres argumentos:
+
+- operation_mode
+- robot_state_mode
+- PID
+
+Cada uno tiene valores por default y se pueden definir de manera independiente
+
+El argumento operation_mode define si se usa el robot real o virtual:
 ```
-ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID := soft
+# (default) De momento solo simula la cinemática
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
 ```
 ```
-ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID := accuracy
+# Para conectarse al robot real usando U2D2 o equivalente
+ros2 launch rp3ba rp3ba.launch.py operation_mode:=real
 ```
+
+El argumento robot_state_mode define que tanta información se publica:
+```
+# (default) Solo publica el estado articular
+ros2 launch rp3ba rp3ba.launch.py robot_state_mode:=joint_state_only 
+```
+```
+# Publica tambien el estado de la plataforma móvil y la fuerza que ejerce el usuario
+ros2 launch rp3ba rp3ba.launch.py robot_state_mode:=full_state 
+```
+
+El argumento PID define la sintonización del PID de los motores dynamixel (se ignoran en operation_mode:=virtual):
+```
+# (default) Control P de ganancias bajas, para usarse como rehabilitador
+ros2 launch rp3ba rp3ba.launch.py PID:=soft
+```
+```
+# Control PD de ganancias altas, para usarse en seguimiento de trayectorias
+ros2 launch rp3ba rp3ba.launch.py PID:=accuracy
+```
+
