@@ -7,7 +7,7 @@ from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Header
 from tf2_ros import TransformBroadcaster
-from rp3ba_interfaces.msg import ParallelStaticState
+from rp3ba_interfaces.msg import StaticStateRP3BA
 
 JR_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JointRobot
 
@@ -20,7 +20,7 @@ class VisualizationDataNode(Node):
         self.transform_stamped.child_frame_id = 'MB_Link'
         self.transform_broadcaster = TransformBroadcaster(self)
         
-        self.sub = self.create_subscription( ParallelStaticState,'static_state', self.state_callback, 10 )
+        self.sub = self.create_subscription( StaticStateRP3BA,'static_state', self.state_callback, 10 )
         self.pub = self.create_publisher(JointState,'joint_state_viz', 10)
         
         self.joints_viz_msg = JointState()

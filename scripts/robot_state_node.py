@@ -9,8 +9,8 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 
 from sensor_msgs.msg import JointState
-from rp3ba_interfaces.msg import ParallelStaticState
 from geometry_msgs.msg import WrenchStamped
+from rp3ba_interfaces.msg import StaticStateRP3BA, BaseStateRP3BA, JointStateRP3BA
 
 DXL_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JR
 H0, H1, H2, H3, H4 = 0.175, 0.0667, 0.0784, 0.0848, 0.0916
@@ -33,8 +33,10 @@ class RobotStateNode(Node):
         
         self.ref_sub = self.create_subscription(JointState, 'reference_state', self.reference_callback, 10)
         self.joint_sub = self.create_subscription(JointState, 'joint_data', self.joint_callback, 10)
-        self.state_pub = self.create_publisher(ParallelStaticState, 'static_state', 10)
         self.wrench_pub = self.create_publisher(WrenchStamped, 'user_wrench', 10)
+        self.state_pub = self.create_publisher(StaticStateRP3BA, 'static_state', 10)
+        #self.joint_pub = self.create_publisher(JointStateRP3BA, 'joint_state', 10)
+        #self.base_pub = self.create_publisher(BaseStateRP3BA, 'base_state', 10)
         
         self.reference_msg, self.base_msg = None, None
         
@@ -50,9 +52,17 @@ class RobotStateNode(Node):
         self.wrench_msg = WrenchStamped() 
         self.wrench_msg.header.frame_id = "MB_Link"
         
-        self.state_msg = ParallelStaticState() 
+        self.state_msg = StaticStateRP3BA() 
         self.state_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
         self.state_msg.joints_position = [0.0]*9 
+        
+        #self.joint_msg = JointStateRP3BA() 
+        #self.joint_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
+        #self.joint_msg.joints_position = [0.0]*9 
+        #self.joint_msg.joints_velocity = [0.0]*9 
+        #self.joint_msg.joints_acceleration = [0.0]*9 
+        
+        #self.base_msg = BaseStateRP3BA()
         
         self.rc = []
         self.rc_skew = []
@@ -93,20 +103,7 @@ class RobotStateNode(Node):
         R_bm, r_bm = self.calculo_pose_base_movil(r_ef)
         quat_bm = Rotation.from_matrix(R_bm).as_quat()  
         
-        # Asignar datos articulares al mensaje static_state
-        self.state_msg.header.stamp = msg.header.stamp
-        self.state_msg.joints_position[:] = array('d', Q)
-              
-        # Desempaquetar los elementos de la pose
-        ppp = self.state_msg.platform_pose.position
-        ppo = self.state_msg.platform_pose.orientation
-                
-        # Asignar datos de la pose al mensaje static_state
-        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
-        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
-                
-        #Publicar Parallel Static State
-        self.state_pub.publish(self.state_msg)  
+        self.publicar_static_state(Q, r_bm, quat_bm, msg.header.stamp)
            
         # Requisitos para calcular derivadas
         if self.prev_Q is None:
@@ -117,6 +114,9 @@ class RobotStateNode(Node):
         dt = (current_time - self.prev_time).nanoseconds *1e-9
         Q_dot = self.filter_gain*self.prev_Q_dot + (1. - self.filter_gain)*(Q - self.prev_Q) / dt
         Q_ddot = self.filter_gain*self.prev_Q_ddot + (1. - self.filter_gain)*(Q_dot - self.prev_Q_dot) / dt
+        
+        #if self.joint_pub.get_subscription_count() > 0:
+        #    self.publicar_joint_state(Q, Q_dot, Q_ddot, msg.header.stamp)
        
         # Guardar estados previos
         self.prev_time, self.prev_Q, self.prev_Q_dot = current_time, Q, Q_dot
@@ -140,6 +140,9 @@ class RobotStateNode(Node):
         
         # Guardar estado previo
         self.prev_Jbm_inv = Jbm_inv
+        
+        #if self.base_pub.get_subscription_count() > 0:
+        #    self.publicar_base_state(r_bm, quat_bm, xi, xi_dot, msg.header.stamp)
                                  
         # Pares de actuación (control P)
         reference_map = dict(zip(self.reference_msg.name, self.reference_msg.position))        
@@ -166,18 +169,8 @@ class RobotStateNode(Node):
         # Fuerzas y pares del usuario
         fu = MP*(ap - GW) - np.sum(fr, axis=0) - np.array([0., 0., -1.55]) # offset por la fricción
         nu = ( IP @ alpha - np.sum( [np.cross(R_bm @ self.rc[k], fr[k]) for k in range(3)], axis=0) )
-                
-        # Desempaquetar los elementos del mensaje user_wrench
-        uwf = self.wrench_msg.wrench.force
-        uwt = self.wrench_msg.wrench.torque
-                
-        # Asignar datos al mensaje user_wrench
-        uwf.x, uwf.y, uwf.z = map(float, fu)
-        uwt.x, uwt.y, uwt.z = map(float, nu)  
-                
-        # Publicar wrench_msg
-        self.wrench_msg.header.stamp = msg.header.stamp
-        self.wrench_pub.publish(self.wrench_msg)   
+        
+        self.publicar_wrench_state(fu, nu, msg.header.stamp)
                         
     # Funciones auxiliares
         
@@ -271,12 +264,72 @@ class RobotStateNode(Node):
                  + 0.5*H2*HC3*M3*q1d**2*cos(q3) + H2*HC3*M3*q2d**2*cos(q3) + 0.5*H2*HC3*M3*q1d**2*cos(2*q2 + q3) ) ]) )
         return C
         
-    def calculo_gravedad_brazos(self,q1_,q2_,q3_):
+    def calculo_gravedad_brazos(self, q1_, q2_, q3_):
         G = []
         for k in range(3):
             q1, q2, q3 = q1_[k], q2_[k], q3_[k]
             G.append(np.array([ 0, H2*M3*cos(q2)+HC2*M2*cos(q2)-HC3*M3*sin(q2+q3), -HC3*M3*sin(q2+q3)])*GM )
         return G
+        
+    def publicar_static_state(self, Q, r_bm, quat_bm, stamp):     
+        # Asignar datos articulares al mensaje static_state
+        self.state_msg.header.stamp = stamp
+        self.state_msg.joints_position[:] = array('d', Q)
+              
+        # Desempaquetar los elementos de la pose
+        ppp = self.state_msg.platform_pose.position
+        ppo = self.state_msg.platform_pose.orientation
+                
+        # Asignar datos de la pose al mensaje static_state
+        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
+        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
+                
+        #Publicar Parallel Static State
+        self.state_pub.publish(self.state_msg)  
+        
+    def publicar_joint_state(self, Q, Q_dot, Q_ddot, stamp):
+        # Asignar datos articulares al mensaje Joint State
+        self.joint_msg.header.stamp = stamp
+        self.joint_msg.joints_position[:] = array('d', Q)
+        self.joint_msg.joints_velocity[:] = array('d', Q_dot)
+        self.joint_msg.joints_acceleration[:] = array('d', Q_ddot)
+                    
+        # Publicar Joint State
+        self.joint_pub.publish(self.joint_msg)  
+        
+    def publicar_base_state(self, r_bm, quat_bm, xi, xi_dot, stamp):
+        # Desempaquetar los elementos del mensaje base_state
+        ppp = self.base_msg.platform_pose.position
+        ppo = self.base_msg.platform_pose.orientation
+        ptl = self.base_msg.platform_twist.linear
+        pta = self.base_msg.platform_twist.angular
+        pal = self.base_msg.platform_accel.linear
+        paa = self.base_msg.platform_accel.angular
+            
+        # Asignar datos articulares al mensaje Base State
+        self.base_msg.header.stamp = stamp
+        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
+        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
+        ptl.x, ptl.y, ptl.z = map(float, xi[:3])
+        pta.x, pta.y, pta.z = map(float, xi[3:])
+        pal.x, pal.y, pal.z = map(float, xi_dot[:3])
+        paa.x, paa.y, paa.z = map(float, xi_dot[3:])  
+                    
+        # Publicar Base State
+        self.base_pub.publish(self.base_msg)  
+        
+    def publicar_wrench_state(self, fu, nu, stamp):
+        # Desempaquetar los elementos del mensaje user_wrench
+        uwf = self.wrench_msg.wrench.force
+        uwt = self.wrench_msg.wrench.torque
+                
+        # Asignar datos al mensaje user_wrench
+        uwf.x, uwf.y, uwf.z = map(float, fu)
+        uwt.x, uwt.y, uwt.z = map(float, nu)  
+                
+        # Publicar wrench_msg
+        self.wrench_msg.header.stamp = stamp
+        self.wrench_pub.publish(self.wrench_msg)   
 
 def main(args=None):
     rclpy.init(args=args)
