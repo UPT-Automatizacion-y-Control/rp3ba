@@ -12,7 +12,7 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import WrenchStamped
 from rp3ba_interfaces.msg import StaticStateRP3BA, BaseStateRP3BA, JointStateRP3BA
 
-DXL_IDS = (11, 12, 13, 21, 22, 23, 31, 32, 33) # JR
+DXL_IDS = (11, 12, 13, 21, 22, 23) # JR
 H0, H1, H2, H3, H4 = 0.175, 0.0667, 0.0784, 0.0848, 0.0916
 HC1, HC2, HC3 = 0.046, 0.028, 0.032
 I1X, I1Y, I1Z, I1XY = 7e-5, 10e-5, 8e-5, -1e-5
@@ -35,19 +35,18 @@ class RobotStateNode(Node):
         self.joint_sub = self.create_subscription(JointState, 'joint_data', self.joint_callback, 10)
         self.wrench_pub = self.create_publisher(WrenchStamped, 'user_wrench', 10)
         self.state_pub = self.create_publisher(StaticStateRP3BA, 'static_state', 10)
-        #self.joint_pub = self.create_publisher(JointStateRP3BA, 'joint_state', 10)
-        #self.base_pub = self.create_publisher(BaseStateRP3BA, 'base_state', 10)
+        self.joint_pub = self.create_publisher(JointStateRP3BA, 'joint_state', 10)
+        self.base_pub = self.create_publisher(BaseStateRP3BA, 'base_state', 10)
         
-        self.reference_msg, self.base_msg = None, None
+        self.reference_msg = None
         
         self.filter_gain = 0.95
         self.prev_time, self.prev_Jbm_inv = None, None
         self.prev_Q, self.prev_Q_dot, self.prev_Q_ddot= None, np.zeros(9), np.zeros(9)
         self.q3_init = np.zeros(3)
-        
-        self.q0 = []
-        for k in range(3):
-            self.q0.append(k*2.*pi/3. + pi)
+        self.d_target = 2.0 * H4 * sin(pi / 3.0)
+        self.joint_indices = None
+        self.ref_indices = None
         
         self.wrench_msg = WrenchStamped() 
         self.wrench_msg.header.frame_id = "MB_Link"
@@ -56,13 +55,13 @@ class RobotStateNode(Node):
         self.state_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
         self.state_msg.joints_position = [0.0]*9 
         
-        #self.joint_msg = JointStateRP3BA() 
-        #self.joint_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
-        #self.joint_msg.joints_position = [0.0]*9 
-        #self.joint_msg.joints_velocity = [0.0]*9 
-        #self.joint_msg.joints_acceleration = [0.0]*9 
+        self.joint_msg = JointStateRP3BA() 
+        self.joint_msg.joints_name = ["jr11","jr12","jr13","jr21","jr22","jr23","jr31","jr32","jr33"]
+        self.joint_msg.joints_position = [0.0]*9 
+        self.joint_msg.joints_velocity = [0.0]*9 
+        self.joint_msg.joints_acceleration = [0.0]*9 
         
-        #self.base_msg = BaseStateRP3BA()
+        self.base_msg = BaseStateRP3BA()
         
         self.rc = []
         self.rc_skew = []
@@ -91,10 +90,13 @@ class RobotStateNode(Node):
         if self.reference_msg is None: return
         current_time = self.get_clock().now()
             
-        # Posición articular
-        joint_map = dict(zip(msg.name, msg.position))        
-        q1 = np.array([ joint_map[f"dxl_{i}"] for i in DXL_IDS[:3] ])
-        q2 = np.array([ joint_map[f"dxl_{i}"] for i in DXL_IDS[3:6] ])
+        # Posición articular (caché de índices para evitar dict/formatting en cada callback)
+        if self.joint_indices is None:
+            name_map = {name: idx for idx, name in enumerate(msg.name)}
+            self.joint_indices = [name_map[f"dxl_{i}"] for i in DXL_IDS]
+            
+        q1 = np.array([ msg.position[i] for i in self.joint_indices[:3] ])
+        q2 = np.array([ msg.position[i] for i in self.joint_indices[3:6] ])
         q3 = self.estimacion_q3(q1, q2)
         Q = np.array([q1, q2, q3]).reshape(-1)    
                  
@@ -112,11 +114,15 @@ class RobotStateNode(Node):
         
         # Cálculo de las derivadas articulares
         dt = (current_time - self.prev_time).nanoseconds *1e-9
+        if dt <= 0:
+            dt = 1e-3
+            self.get_logger().warn( f"dt is negative" )   
+            
         Q_dot = self.filter_gain*self.prev_Q_dot + (1. - self.filter_gain)*(Q - self.prev_Q) / dt
         Q_ddot = self.filter_gain*self.prev_Q_ddot + (1. - self.filter_gain)*(Q_dot - self.prev_Q_dot) / dt
         
-        #if self.joint_pub.get_subscription_count() > 0:
-        #    self.publicar_joint_state(Q, Q_dot, Q_ddot, msg.header.stamp)
+        if self.joint_pub.get_subscription_count() > 0:
+            self.publicar_joint_state(Q, Q_dot, Q_ddot, msg.header.stamp)
        
         # Guardar estados previos
         self.prev_time, self.prev_Q, self.prev_Q_dot = current_time, Q, Q_dot
@@ -141,13 +147,16 @@ class RobotStateNode(Node):
         # Guardar estado previo
         self.prev_Jbm_inv = Jbm_inv
         
-        #if self.base_pub.get_subscription_count() > 0:
-        #    self.publicar_base_state(r_bm, quat_bm, xi, xi_dot, msg.header.stamp)
+        if self.base_pub.get_subscription_count() > 0:
+            self.publicar_base_state(r_bm, quat_bm, xi, xi_dot, msg.header.stamp)
                                  
         # Pares de actuación (control P)
-        reference_map = dict(zip(self.reference_msg.name, self.reference_msg.position))        
-        q1_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[:3] ])
-        q2_ref = np.array([ reference_map[f"dxl_{i}"] for i in DXL_IDS[3:6] ])
+        if self.ref_indices is None:
+            ref_name_map = {name: idx for idx, name in enumerate(self.reference_msg.name)}
+            self.ref_indices = [ref_name_map[f"dxl_{i}"] for i in DXL_IDS]
+            
+        q1_ref = np.array([ self.reference_msg.position[i] for i in self.ref_indices[:3] ])
+        q2_ref = np.array([ self.reference_msg.position[i] for i in self.ref_indices[3:6] ])
         tau1 = KP*(q1_ref - q1) 
         tau2 = KP*(q2_ref - q2) 
         tau = np.array([tau1, tau2, np.zeros(3)])   
@@ -157,14 +166,15 @@ class RobotStateNode(Node):
         Cb = self.calculo_coriolis_brazos(q1, q2, q3, Q_dot[0:3], Q_dot[3:6], Q_dot[6:])
         Gb = self.calculo_gravedad_brazos(q1, q2, q3)
                 
-        Q_ddot = Q_ddot.reshape(3,3)
+        Q_ddot_m = Q_ddot.reshape(3,3)
+        tau_dyn_list = []
         for k in range(3):
-            tau_dyn =  Hb[k] @ Q_ddot[:, k] + Cb[k]  + Gb[k]
+            tau_dyn_list.append(Hb[k] @ Q_ddot_m[:, k] + Cb[k]  + Gb[k])
                 
         # Fuerzas de reacción en el sistema de coordenadas del mundo
         fr = []
         for k in range(3): 
-            fr.append(self.R_q0[k] @ np.linalg.pinv(Jvb[k].T) @ (tau[:,k] - tau_dyn))
+            fr.append(self.R_q0[k] @ np.linalg.pinv(Jvb[k].T) @ (tau[:,k] - tau_dyn_list[k]))
                 
         # Fuerzas y pares del usuario
         fu = MP*(ap - GW) - np.sum(fr, axis=0) - np.array([0., 0., -1.55]) # offset por la fricción
@@ -175,17 +185,24 @@ class RobotStateNode(Node):
     # Funciones auxiliares
         
     def estimacion_q3(self, q1, q2):      
-        def restriction_cost(q3):
-            P = self.cinematica_brazos(q1, q2, q3)
-            d = 2.0*H4*sin(pi/3.0)
-            cost = np.sqrt( (np.linalg.norm(P[0] - P[1]) - d)**2 +
-                               (np.linalg.norm(P[1] - P[2]) - d)**2 +
-                               (np.linalg.norm(P[2] - P[0]) - d)**2 ) * 1000.0
-            return cost
-        result = minimize( restriction_cost, self.q3_init, method='Nelder-Mead', tol=1e-3,
-            options={ 'maxiter': 1000, 'xatol': 1e-6, 'fatol': 1e-3, 'disp': False } )
+        def cost_function(q3):
+            q0_q1 = self.q0 + q1
+            q2_q3 = q2 + q3
+            r = H2*np.cos(q2) - H3*np.sin(q2_q3)
+            x = -H0*np.cos(self.q0) + r * np.cos(q0_q1)
+            y = -H0*np.sin(self.q0) + r * np.sin(q0_q1)
+            z = H1 + H3*np.cos(q2_q3) + H2*np.sin(q2)
+            P0 = np.array([x[0], y[0], z[0]])
+            P1 = np.array([x[1], y[1], z[1]])
+            P2 = np.array([x[2], y[2], z[2]])
+            d01 = np.linalg.norm(P0 - P1) - self.d_target
+            d12 = np.linalg.norm(P1 - P2) - self.d_target
+            d20 = np.linalg.norm(P2 - P0) - self.d_target
+            return (d01*d01 + d12*d12 + d20*d20)
+
+        result = minimize(cost_function, self.q3_init, method='Nelder-Mead', options={'maxiter':100, 'fatol':1e-6})
         if not result.success:
-            self.get_logger().warn( f"Configuration is not feasible: {result.message}" )       
+            self.get_logger().warn( f"Estimación Q3: {result.message}" )       
         np.copyto(self.q3_init, result.x)
         return result.x
     
@@ -272,33 +289,26 @@ class RobotStateNode(Node):
         return G
         
     def publicar_static_state(self, Q, r_bm, quat_bm, stamp):     
-        # Asignar datos articulares al mensaje static_state
         self.state_msg.header.stamp = stamp
-        self.state_msg.joints_position[:] = array('d', Q)
+        self.state_msg.joints_position = Q.tolist()
               
-        # Desempaquetar los elementos de la pose
         ppp = self.state_msg.platform_pose.position
         ppo = self.state_msg.platform_pose.orientation
                 
-        # Asignar datos de la pose al mensaje static_state
-        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
-        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
+        ppp.x, ppp.y, ppp.z = float(r_bm[0]), float(r_bm[1]), float(r_bm[2])
+        ppo.x, ppo.y, ppo.z, ppo.w = float(quat_bm[0]), float(quat_bm[1]), float(quat_bm[2]), float(quat_bm[3])
                 
-        #Publicar Parallel Static State
         self.state_pub.publish(self.state_msg)  
         
     def publicar_joint_state(self, Q, Q_dot, Q_ddot, stamp):
-        # Asignar datos articulares al mensaje Joint State
         self.joint_msg.header.stamp = stamp
-        self.joint_msg.joints_position[:] = array('d', Q)
-        self.joint_msg.joints_velocity[:] = array('d', Q_dot)
-        self.joint_msg.joints_acceleration[:] = array('d', Q_ddot)
+        self.joint_msg.joints_position = Q.tolist()
+        self.joint_msg.joints_velocity = Q_dot.tolist()
+        self.joint_msg.joints_acceleration = Q_ddot.tolist()
                     
-        # Publicar Joint State
         self.joint_pub.publish(self.joint_msg)  
         
     def publicar_base_state(self, r_bm, quat_bm, xi, xi_dot, stamp):
-        # Desempaquetar los elementos del mensaje base_state
         ppp = self.base_msg.platform_pose.position
         ppo = self.base_msg.platform_pose.orientation
         ptl = self.base_msg.platform_twist.linear
@@ -306,28 +316,23 @@ class RobotStateNode(Node):
         pal = self.base_msg.platform_accel.linear
         paa = self.base_msg.platform_accel.angular
             
-        # Asignar datos articulares al mensaje Base State
         self.base_msg.header.stamp = stamp
-        ppp.x, ppp.y, ppp.z = map(float, r_bm)  
-        ppo.x, ppo.y, ppo.z, ppo.w = map(float, quat_bm)
-        ptl.x, ptl.y, ptl.z = map(float, xi[:3])
-        pta.x, pta.y, pta.z = map(float, xi[3:])
-        pal.x, pal.y, pal.z = map(float, xi_dot[:3])
-        paa.x, paa.y, paa.z = map(float, xi_dot[3:])  
+        ppp.x, ppp.y, ppp.z = float(r_bm[0]), float(r_bm[1]), float(r_bm[2])
+        ppo.x, ppo.y, ppo.z, ppo.w = float(quat_bm[0]), float(quat_bm[1]), float(quat_bm[2]), float(quat_bm[3])
+        ptl.x, ptl.y, ptl.z = float(xi[0]), float(xi[1]), float(xi[2])
+        pta.x, pta.y, pta.z = float(xi[3]), float(xi[4]), float(xi[5])
+        pal.x, pal.y, pal.z = float(xi_dot[0]), float(xi_dot[1]), float(xi_dot[2])
+        paa.x, paa.y, paa.z = float(xi_dot[3]), float(xi_dot[4]), float(xi_dot[5])
                     
-        # Publicar Base State
         self.base_pub.publish(self.base_msg)  
         
     def publicar_wrench_state(self, fu, nu, stamp):
-        # Desempaquetar los elementos del mensaje user_wrench
         uwf = self.wrench_msg.wrench.force
         uwt = self.wrench_msg.wrench.torque
                 
-        # Asignar datos al mensaje user_wrench
-        uwf.x, uwf.y, uwf.z = map(float, fu)
-        uwt.x, uwt.y, uwt.z = map(float, nu)  
+        uwf.x, uwf.y, uwf.z = float(fu[0]), float(fu[1]), float(fu[2])
+        uwt.x, uwt.y, uwt.z = float(nu[0]), float(nu[1]), float(nu[2])
                 
-        # Publicar wrench_msg
         self.wrench_msg.header.stamp = stamp
         self.wrench_pub.publish(self.wrench_msg)   
 
