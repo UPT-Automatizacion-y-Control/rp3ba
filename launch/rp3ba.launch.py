@@ -43,11 +43,11 @@ def generate_launch_description():
 
     robot_state_node = Node(
         package='rp3ba', executable='robot_state_node.py', name='rob_state', 
-        output='screen', remappings=[ ('reference_state', 'joints_d'), ('joint_data', 'joints_m'), ('static_state', 'pos_state') ] )
+        output='screen', remappings=[ ('reference_state', 'joints_d'), ('joint_data', 'joints_m') ] )
         
     visualization_data_node = Node( 
         package='rp3ba', executable='visualization_data_node.py', name='viz_data', output='screen', 
-        remappings=[ ('static_state', 'pos_state'), ('joint_state_viz', 'viz_state')]  )
+        remappings=[ ('joint_state_viz', 'viz_state')]  )
         
     rviz_config_path = join( get_package_share_directory("rp3ba"), 'rviz', 'config.rviz' )
         
