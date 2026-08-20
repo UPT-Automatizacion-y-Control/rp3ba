@@ -219,7 +219,7 @@ private:
             dynamixel_pub->publish(msg_out);
         }
         else 
-            RCLCPP_ERROR(this->get_logger(), "Failed to get velocity and position! Result: %u", dxl_comm_result);    
+            RCLCPP_WARN(this->get_logger(), "Failed to get velocity and position! Result: %u", dxl_comm_result);    
     }
     
     float radian2raw(float angle)
