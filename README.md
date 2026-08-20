@@ -72,6 +72,7 @@ El archivo rp3ba.launch.py tiene dos argumentos:
 - PID
 
 El argumento 'operation_mode' define si se usa el robot real o virtual.
+
 Este argumento tiene dos opciones: 'virtual' (default) y 'real':
 ```
 ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
@@ -83,6 +84,7 @@ ros2 launch rp3ba rp3ba.launch.py operation_mode:=real
 ```
 
 El argumento PID define la sintonización del PID de los motores dynamixel (se ignoran en operation_mode:=virtual):
+
 Este argumento tiene dos opciones: 'soft' (default) y 'accuracy'
 ```
 ros2 launch rp3ba rp3ba.launch.py operation_mode:=real PID:=soft
