@@ -1,6 +1,8 @@
+import os
+from datetime import datetime
 from os.path import join
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
@@ -73,6 +75,16 @@ def generate_launch_description():
         output='screen', parameters=[{'robot_description': robot_desc_mobile}], arguments=[urdf_mobile], 
         remappings=[ ('joint_states', 'unused'), ('robot_description','robot_description_mobile') ] )
 
+    rosbags_dir = os.path.expanduser('~/rosbags')
+    os.makedirs(rosbags_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+    bag_path = os.path.join(rosbags_dir, f'rosbag_{timestamp}')
+
+    rosbag_node = ExecuteProcess(
+        cmd=['ros2', 'bag', 'record', '-o', bag_path, '--topics', '/user_wrench', '/static_state', '/joint_state', '/base_state'],
+        output='screen'
+    )
+
     return LaunchDescription( [ 
         mode_arg,
         application_arg,
@@ -84,4 +96,5 @@ def generate_launch_description():
         visualization_data_node,
         rviz_node,
         robot_state_publisher_arms_node,
-        robot_state_publisher_mobile_node] )
+        robot_state_publisher_mobile_node,
+        rosbag_node] )
