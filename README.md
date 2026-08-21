@@ -79,8 +79,8 @@ ros2 launch rp3ba rp3ba.launch.py operation_mode:=virtual
 # De momento solo simula la cinemática
 ```
 ```
-# Para conectarse al robot real usando U2D2 o equivalente
 ros2 launch rp3ba rp3ba.launch.py operation_mode:=real
+# Para conectarse al robot real usando U2D2 o equivalente
 ```
 
 El argumento PID define la sintonización del PID de los motores dynamixel (se ignoran en operation_mode:=virtual):
